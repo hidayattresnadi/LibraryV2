@@ -6,11 +6,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace SimpleLibraryV2.Services
 {
-    public class BorrowingService :IBorrowingService
+    public class BookManager
     {
         private readonly IServiceScopeFactory _scopeFactory;
-
-        public BorrowingService(IServiceScopeFactory scopeFactory)
+        public BookManager(IServiceScopeFactory scopeFactory)
         {
             _scopeFactory = scopeFactory;
         }

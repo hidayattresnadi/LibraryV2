@@ -16,17 +16,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.ConfigurePersistence(builder.Configuration);
-//var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-//builder.Services.AddDbContext<MyDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddSingleton<IBorrowingService>(provider =>
+builder.Services.AddSingleton<BookManager>(provider =>
 {
     var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
-    return new BorrowingService(scopeFactory);
+    return new BookManager(scopeFactory);
 });
-//builder.Services.AddScoped<BookRepository>();
-//builder.Services.AddScoped<UserRepository>();
 
 var app = builder.Build();
 
