@@ -3,22 +3,24 @@ using SimpleLibraryV2.Context;
 using SimpleLibraryV2.Interfaces;
 using SimpleLibraryV2.Models;
 using Microsoft.Extensions.DependencyInjection;
+using SimpleLibraryV2.NewFolder;
 
 namespace SimpleLibraryV2.Services
 {
     public class BookManager
     {
-        private readonly IServiceScopeFactory _scopeFactory;
-        public BookManager(IServiceScopeFactory scopeFactory)
+        private readonly IServiceProvider _serviceProvider;
+        public BookManager( IServiceProvider serviceProvider)
         {
-            _scopeFactory = scopeFactory;
+            _serviceProvider = serviceProvider;
         }
         public async Task<List<Borrowing>> BorrowBook(BorrowingInput borrowingInput, int maximumBorrowedBooks, int maximumLoanDays)
         {
-            using (var scope = _scopeFactory.CreateScope())
+            using (var scope = _serviceProvider.CreateScope())
             {
-                /// Mendapatkan DbContext scoped dari service provider scope baru
-                var context = scope.ServiceProvider.GetRequiredService<MyDbContext>();
+                var _userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+                var _bookRepository = scope.ServiceProvider.GetRequiredService<IBookRepository>();
+                var _borrowingRepository = scope.ServiceProvider.GetRequiredService<IBorrowingRepository>();
                 List<Borrowing> borrowingList = new List<Borrowing>();
                 var bookIds = borrowingInput.BookIds;
                 var userId = borrowingInput.UserId;
@@ -31,7 +33,7 @@ namespace SimpleLibraryV2.Services
                 {
                     throw new ArgumentException("Books data input should not be dupplicate");
                 }
-                var user = await context.Users.FirstOrDefaultAsync(user => user.UserId == userId);
+                var user = await _userRepository.GetFirstOrDefaultAsync(user => user.UserId == userId);
                 if (user == null)
                 {
                     throw new ArgumentException("User Id Is Invalid");
@@ -40,12 +42,12 @@ namespace SimpleLibraryV2.Services
                 DateTime dueDate = DateTime.UtcNow.AddDays(maximumLoanDays);
                 foreach (var bookId in bookIds)
                 {
-                    var book = await context.Books.FirstOrDefaultAsync(book => book.Id == bookId);
+                    var book = await _bookRepository.GetFirstOrDefaultAsync(book => book.Id == bookId);
                     if (book == null)
                     {
                         throw new ArgumentException("Book is not found");
                     }
-                    var bookBorrowing = await context.Borrowings.FirstOrDefaultAsync(borrowing => borrowing.BookId == bookId && borrowing.ReturnDate == null);
+                    var bookBorrowing = await _borrowingRepository.GetFirstOrDefaultAsync(borrowing => borrowing.BookId == bookId && borrowing.ReturnDate == null);
                     if (bookBorrowing != null)
                     {
                         throw new ArgumentException("Book is already borrowed, please borrow another book");
@@ -60,16 +62,18 @@ namespace SimpleLibraryV2.Services
                     };
                     borrowingList.Add(borrowing);
                 }
-                await context.Borrowings.AddRangeAsync(borrowingList);
-                await context.SaveChangesAsync();
+                await _borrowingRepository.AddRangeAsync(borrowingList);
+                await _borrowingRepository.SaveAsync();
                 return borrowingList;
             }
         }
         public async Task<List<Borrowing>> ReturnBook(BorrowingInput borrowingInput)
         {
-            using (var scope = _scopeFactory.CreateScope())
+            using (var scope = _serviceProvider.CreateScope())
             {
-                var context = scope.ServiceProvider.GetRequiredService<MyDbContext>();
+                var _userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+                var _bookRepository = scope.ServiceProvider.GetRequiredService<IBookRepository>();
+                var _borrowingRepository = scope.ServiceProvider.GetRequiredService<IBorrowingRepository>();
                 bool hasDuplicates = borrowingInput.BookIds.Count() != borrowingInput.BookIds.Distinct().Count();
                 if (hasDuplicates)
                 {
@@ -77,25 +81,17 @@ namespace SimpleLibraryV2.Services
                 }
                 DateTime returnedDate = DateTime.UtcNow;
                 var userId = borrowingInput.UserId;
-                var user = await context.Users.FirstOrDefaultAsync(user => user.UserId == userId);
+                var user = await _userRepository.GetFirstOrDefaultAsync(user => user.UserId == userId);
                 if (user == null)
                 {
                     throw new ArgumentException("User Id Is Invalid");
                 }
-                // Fetch all borrowings for the specified book IDs and user
-                var borrowings = await context.Borrowings
-                    .Where(b => borrowingInput.BookIds.Contains(b.BookId) && b.UserId == borrowingInput.UserId)
-                    .ToListAsync();
-
-                // Track books that are still on loan
+                var borrowings = await _borrowingRepository.GetAllAsync(b => borrowingInput.BookIds.Contains(b.BookId) && b.UserId == borrowingInput.UserId);
                 var borrowedBookIds = borrowings
-                    .Where(b => b.ReturnDate == null)  // Only include books still on loan
+                    .Where(b => b.ReturnDate == null)
                     .Select(b => b.BookId)
                     .ToHashSet();
-
                 var inputBookIds = borrowingInput.BookIds.ToHashSet();
-
-                // Validate if all books the user wants to borrow are currently on loan
                 if (!inputBookIds.IsSubsetOf(borrowedBookIds))
                 {
                     throw new ArgumentException("One or more books have not been borrowed by this user or have been returned.");
@@ -109,8 +105,8 @@ namespace SimpleLibraryV2.Services
                         updatedBorrowings.Add(borrowing);
                     }
                 }
-                context.Borrowings.UpdateRange(borrowings);
-                await context.SaveChangesAsync();
+                _borrowingRepository.UpdateRange(borrowings);
+                await _borrowingRepository.SaveAsync();
                 return updatedBorrowings;
             }
         }

@@ -15,6 +15,7 @@ namespace LibraryApplication.Infrastructure
             services.AddDbContext<MyDbContext>(options => options.UseNpgsql(connection));
             services.AddScoped<IBookRepository,BookRepository>();
             services.AddScoped<IUserRepository,UserRepository>();
+            services.AddScoped<IBorrowingRepository, BorrowingRepository>();
         }
     }
 }

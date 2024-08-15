@@ -31,6 +31,12 @@ namespace WebAPITutorial.Repositories
         {
             return await _dbSet.ToListAsync();
         }
+
+        public async Task<IEnumerable<T>> GetAllAsync(Expression<Func<T, bool>> expression)
+        {
+            IQueryable<T> queries = _dbSet.Where(expression);
+            return await queries.ToListAsync();
+        }
         public bool Remove(T entity)
         {
             _dbSet.Remove(entity);

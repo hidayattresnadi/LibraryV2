@@ -18,11 +18,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.ConfigurePersistence(builder.Configuration);
 builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddSingleton<BookManager>(provider =>
-{
-    var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
-    return new BookManager(scopeFactory);
-});
+builder.Services.AddSingleton<BookManager>();
 
 var app = builder.Build();
 
